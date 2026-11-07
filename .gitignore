@@ -1,0 +1,15 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local run settings (contain personal paths)
+**/Properties/launchSettings.json
+
+# Logs
+*.log
