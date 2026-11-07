@@ -9,70 +9,136 @@ namespace FolderSync.Core
         private readonly string _sourceFolderPath;
         private readonly string _replicaFolderPath;
 
+        // Windows file path system is not case-sensitive, but Linux is
+        private StringComparer _comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        private StringComparison _comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
         public FolderSynchronizer(ILogger logger, string sourceFolderPath, string replicaFolderPath)
         {
             ArgumentException.ThrowIfNullOrEmpty(sourceFolderPath);
             ArgumentException.ThrowIfNullOrEmpty(replicaFolderPath);
             ArgumentNullException.ThrowIfNull(logger);
 
+            var fullSourcePath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceFolderPath));
+            var fullReplicaPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(replicaFolderPath));
+
+            var sourceWithSeparator = fullSourcePath + Path.DirectorySeparatorChar;
+            var replicaWithSeparator = fullReplicaPath + Path.DirectorySeparatorChar;
+
+            if (_comparer.Equals(fullSourcePath, fullReplicaPath))
+            {
+                throw new ArgumentException("Source and Replica folder paths are identical.");
+            }
+
+            if (fullReplicaPath.StartsWith(sourceWithSeparator, _comparison) || fullSourcePath.StartsWith(replicaWithSeparator, _comparison))
+            {
+                throw new ArgumentException("Source and Replica folders can't be stored inside each other.");
+            }
+
             _logger = logger;
-            _sourceFolderPath = sourceFolderPath;
-            _replicaFolderPath = replicaFolderPath;
+            _sourceFolderPath = fullSourcePath;
+            _replicaFolderPath = fullReplicaPath;
         }
 
         public void Synchronize(CancellationToken cancellationToken)
         {
             if (!Directory.Exists(_sourceFolderPath))
             {
-                _logger.Log($"Source folder not found: {_sourceFolderPath}, terminating the synchronization process.");
+                _logger.Log($"Source folder not found: {_sourceFolderPath}, skipping this synchronization.");
                 return;
             }
 
             if (!Directory.Exists(_replicaFolderPath))
             {
                 Directory.CreateDirectory(_replicaFolderPath);
-                _logger.Log($"Replica folder not found: {_replicaFolderPath}, creating the folder and starting the synchronization process.");
+                _logger.Log($"Replica folder not found: {_replicaFolderPath}, created the folder and starting the synchronization process.");
             }
+
 
             var sourceFiles = GetRelativeFilePaths(_sourceFolderPath);
             var replicaFiles = GetRelativeFilePaths(_replicaFolderPath);
 
-            var filesToDelete = replicaFiles.Except(sourceFiles).ToList();
-            var filesToCopy = sourceFiles.Except(replicaFiles).ToList();
-            var filesToCompare = replicaFiles.Intersect(sourceFiles).ToList();
+            var filesToDelete = replicaFiles.Except(sourceFiles, _comparer).ToList();
+            var filesToCopy = sourceFiles.Except(replicaFiles, _comparer).ToList();
+            var filesToCompare = replicaFiles.Intersect(sourceFiles, _comparer).ToList();
 
             var sourceDirectories = GetRelativeDirectoryPaths(_sourceFolderPath);
             var replicaDirectories = GetRelativeDirectoryPaths(_replicaFolderPath);
 
-            var directoriesToDelete = replicaDirectories.Except(sourceDirectories).ToList();
-            var directoriesToCopy = sourceDirectories.Except(replicaDirectories).ToList();
+            var directoriesToDelete = replicaDirectories.Except(sourceDirectories, _comparer).ToList();
+            var directoriesToCopy = sourceDirectories.Except(replicaDirectories, _comparer).ToList();
 
             foreach (var directory in directoriesToCopy)
             {
-                CreateDirectory(directory);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    CreateDirectory(directory);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"Failed to create a directory: {directory}. Message: {ex.Message}");
+                }
             }
 
             foreach (var file in filesToDelete)
             {
-                DeleteFile(file);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    DeleteFile(file);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"Failed to delete a file: {file}. Message: {ex.Message}");
+                }
             }
 
             foreach (var file in filesToCompare)
             {
-                if (!AreFilesEqual(file))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
                 {
-                    filesToCopy.Add(file);
+                    if (!AreFilesEqual(file))
+                    {
+                        filesToCopy.Add(file);
+                    }
+                }
+                catch (Exception ex) 
+                {
+                    _logger.Log($"Failed to compare a file: {file}. Message: {ex.Message}");
                 }
             }
 
             foreach (var file in filesToCopy)
             {
-                CopyFile(file);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    CopyFile(file);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"Failed to copy a file: {file}. Message: {ex.Message}");
+                }
             }
 
             foreach (var directory in directoriesToDelete)
             {
-                DeleteDirectory(directory);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    DeleteDirectory(directory);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"Failed to delete a directory: {directory}. Message: {ex.Message}");
+                }
             }
         }
 
