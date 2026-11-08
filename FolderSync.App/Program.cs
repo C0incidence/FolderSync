@@ -5,6 +5,8 @@ namespace FolderSync.App
 {
     internal class Program
     {
+        private const int MaxIntervalSeconds = 24 * 60 * 60;
+
         static async Task Main(string[] args)
         {
             if (args.Length != 4)
@@ -17,8 +19,6 @@ namespace FolderSync.App
             var replicaFolderPath = args[1];
             var timerInterval = args[2];
             var logFilePath = args[3];
-
-            const int MaxIntervalSeconds = 24 * 60 * 60;
 
             using var cts = new CancellationTokenSource();
 
@@ -63,10 +63,6 @@ namespace FolderSync.App
             catch (OperationCanceledException)
             {
                 compositeLogger.Log($"Program has been stopped by user.");
-            }
-            catch (Exception ex)
-            {
-                compositeLogger.Log($"Program has been stopped by the following error: {ex.Message}.");
             }
         }
 
