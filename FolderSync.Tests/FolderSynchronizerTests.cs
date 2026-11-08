@@ -139,6 +139,24 @@ namespace FolderSync.Tests
             Assert.That(_logger.Messages, Has.None.Contains("Failed"));
         }
 
+        [Test]
+        public void Synchronize_SourceFolderMissing_LeavesReplicaUntouched()
+        {
+            // Arrange
+            Directory.Delete(_testSourcePath, true);
+            var replicaFile = Path.Combine(_testReplicaPath, "a.txt");
+            File.WriteAllText(replicaFile, "backup content");
+            var synchronizer = new FolderSynchronizer(_logger, _testSourcePath, _testReplicaPath);
+
+            // Act
+            synchronizer.Synchronize(CancellationToken.None);
+
+            // Assert
+            Assert.That(File.Exists(replicaFile), Is.True);
+            Assert.That(File.ReadAllText(replicaFile), Is.EqualTo("backup content"));
+            Assert.That(_logger.Messages, Has.Some.Contains("Source folder not found"));
+        }
+
         [TestCase("data", "data")]              // literally the same path
         [TestCase("data", "data/")]             // trailing separator
         public void Constructor_IdenticalPaths_ThrowsArgumentException(string sourceRelative, string replicaRelative)
