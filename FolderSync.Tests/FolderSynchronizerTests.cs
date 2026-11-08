@@ -27,6 +27,11 @@ namespace FolderSync.Tests
         {
             if (Directory.Exists(_testFolder))
             {
+                foreach (var entry in Directory.EnumerateFileSystemEntries(_testFolder, "*", SearchOption.AllDirectories))
+                {
+                    File.SetAttributes(entry, FileAttributes.Normal);
+                }
+
                 Directory.Delete(_testFolder, true);
             }
         }
@@ -155,6 +160,60 @@ namespace FolderSync.Tests
             Assert.That(File.Exists(replicaFile), Is.True);
             Assert.That(File.ReadAllText(replicaFile), Is.EqualTo("backup content"));
             Assert.That(_logger.Messages, Has.Some.Contains("Source folder not found"));
+        }
+
+        [Test]
+        public void Synchronize_ReadOnlyFileModifiedInSource_UpdatesFileInReplica()
+        {
+            // Arrange
+            var replicaFile = Path.Combine(_testReplicaPath, "a.txt");
+            File.WriteAllText(replicaFile, "old");
+            File.SetAttributes(replicaFile, FileAttributes.ReadOnly);
+            File.WriteAllText(Path.Combine(_testSourcePath, "a.txt"), "new content");
+            var synchronizer = new FolderSynchronizer(_logger, _testSourcePath, _testReplicaPath);
+
+            // Act
+            synchronizer.Synchronize(CancellationToken.None);
+
+            // Assert
+            Assert.That(File.ReadAllText(replicaFile), Is.EqualTo("new content"));
+            Assert.That(_logger.Messages, Has.None.Contains("Failed"));
+        }
+
+        [Test]
+        public void Synchronize_ReadOnlyFileMissingInSource_DeletesFileFromReplica()
+        {
+            // Arrange
+            var replicaFile = Path.Combine(_testReplicaPath, "a.txt");
+            File.WriteAllText(replicaFile, "old");
+            File.SetAttributes(replicaFile, FileAttributes.ReadOnly);
+            var synchronizer = new FolderSynchronizer(_logger, _testSourcePath, _testReplicaPath);
+
+            // Act
+            synchronizer.Synchronize(CancellationToken.None);
+
+            // Assert
+            Assert.That(File.Exists(replicaFile), Is.False);
+            Assert.That(_logger.Messages, Has.None.Contains("Failed"));
+        }
+
+        [Test]
+        public void Synchronize_ExtraFolderWithReadOnlyFileInReplica_DeletesFolder()
+        {
+            // Arrange
+            var replicaOldFolder = Path.Combine(_testReplicaPath, "old");
+            var replicaFile = Path.Combine(replicaOldFolder, "a.txt");
+            Directory.CreateDirectory(replicaOldFolder);
+            File.WriteAllText(replicaFile, "old");
+            File.SetAttributes(replicaFile, FileAttributes.ReadOnly);
+            var synchronizer = new FolderSynchronizer(_logger, _testSourcePath, _testReplicaPath);
+
+            // Act
+            synchronizer.Synchronize(CancellationToken.None);
+
+            // Assert
+            Assert.That(Directory.Exists(replicaOldFolder), Is.False);
+            Assert.That(_logger.Messages, Has.None.Contains("Failed"));
         }
 
         [TestCase("data", "data")]              // literally the same path

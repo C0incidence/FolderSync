@@ -107,6 +107,11 @@ namespace FolderSync.Core
 
             bool existedInReplica = File.Exists(fullReplicaFilePath);
 
+            if (existedInReplica)
+            {
+                ClearReadOnly(fullReplicaFilePath);
+            }
+
             File.Copy(fullSourceFilePath, fullReplicaFilePath, overwrite: true);
 
             if (existedInReplica)
@@ -128,6 +133,7 @@ namespace FolderSync.Core
                 return;
             }
 
+            ClearReadOnly(fullFilePath);
             File.Delete(fullFilePath);
             _logger.Log($"{relativeFilePath} file has been deleted from replica folder.");
         }
@@ -175,6 +181,13 @@ namespace FolderSync.Core
             {
                 return;
             }
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(fullDirectoryPath, "*", SearchOption.AllDirectories))
+            {
+                ClearReadOnly(entry);
+            }
+
+            ClearReadOnly(fullDirectoryPath);
             Directory.Delete(fullDirectoryPath, true);
             _logger.Log($"{relativeDirectoryPath} directory has been deleted from replica folder.");
         }
@@ -193,6 +206,16 @@ namespace FolderSync.Core
                 {
                     _logger.Log($"Failed to {actionName}: {relativePath}. Message: {ex.Message}");
                 }
+            }
+        }
+
+        private static void ClearReadOnly(string fullPath)
+        {
+            var attributes = File.GetAttributes(fullPath);
+
+            if (attributes.HasFlag(FileAttributes.ReadOnly))
+            {
+                File.SetAttributes(fullPath, attributes & ~FileAttributes.ReadOnly);
             }
         }
     }
