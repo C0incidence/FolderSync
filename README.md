@@ -25,7 +25,7 @@ dotnet run --project FolderSync.App -- "C:\Data\Source" "C:\Data\Replica" 30 "C:
 | --- | --- |
 | `source` | Folder to synchronize from. If it does not exist, the run is skipped and logged. |
 | `replica` | Folder to synchronize to. Created automatically if it does not exist. |
-| `intervalSeconds` | Synchronization interval in seconds, from 1 to 86399 (less than 24 hours). |
+| `intervalSeconds` | Synchronization interval in seconds, from 1 to 86400 (24 hours). |
 | `logFile` | Path to the log file. Its folder is created automatically if needed. |
 
 Press **Ctrl+C** to stop the program. The current file operation finishes, then the program exits.
@@ -67,6 +67,7 @@ Unchanged files are not copied again, and nothing is logged for them.
 - **Case sensitivity.** Paths are compared case-insensitively on Windows and macOS (default file system behavior) and case-sensitively on Linux.
 - **No overlapping runs.** `PeriodicTimer` is used, so the next run never starts before the previous one has finished, even if a run takes longer than the interval.
 - **Errors do not stop the program.** A failure on a single file or folder (for example, a file locked by another process) is logged, and the run continues with the next item. If a whole run fails, the error is logged and the next run is attempted after the interval.
+- **Read-only files.** The replica mirrors file attributes, so a read-only source file is copied as read-only. Before a replica file or folder is overwritten or deleted, its read-only flag is cleared; otherwise the replica could never be updated.
 - **Cancellation.** Ctrl+C is checked between file operations, so a file is never left half-copied.
 - **Logging through an interface.** The synchronizer depends on `ILogger`. `CompositeLogger` forwards messages to the console and file loggers, and the tests use a fake logger to check what was logged.
 
@@ -90,10 +91,11 @@ Each test runs in its own temporary folder, which is deleted afterwards. The tes
 - files in nested folders and empty folders;
 - deletion of extra nested folders in the replica;
 - a missing source folder leaving the replica untouched;
-- constructor validation: identical paths, nested paths, and valid paths.
+- read-only files in the replica being updated or deleted;
+- constructor validation: identical paths and nested paths.
 
 ## Known limitations
 
 - A file or folder renamed **only by letter case** on a case-insensitive system keeps its old name in the replica. Its content is still synchronized.
 - If the program is stopped in the middle of a run, the replica can be partially synchronized. The next run completes the synchronization.
-- Every changed file with an unchanged size is fully read to calculate its MD5 hash, which can take time for very large files.
+- Every file that has the same size in source and replica is fully read and hashed on every run, even if it has not changed. For large data sets this makes each run slow.
