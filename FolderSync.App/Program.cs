@@ -7,12 +7,12 @@ namespace FolderSync.App
     {
         private const int MaxIntervalSeconds = 24 * 60 * 60;
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             if (args.Length != 4)
             {
                 Console.WriteLine("Incorrect number of arguments. Usage: FolderSync.App <source> <replica> <intervalSeconds> <logFile> . Terminating the program");
-                return;
+                return 1;
             }
 
             var sourceFolderPath = args[0];
@@ -31,7 +31,7 @@ namespace FolderSync.App
             if (!int.TryParse(timerInterval, out int interval) || interval <= 0 || interval >= MaxIntervalSeconds)
             {
                 Console.WriteLine("Interval must be a positive number, but less than 24 hours.");
-                return;
+                return 1;
             }
 
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(interval));
@@ -48,7 +48,7 @@ namespace FolderSync.App
             catch(Exception ex)
             {
                 Console.WriteLine($"Program has been stopped by the following error: {ex.Message}");
-                return;
+                return 1;
             }
 
             try
@@ -64,6 +64,8 @@ namespace FolderSync.App
             {
                 compositeLogger.Log($"Program has been stopped by user.");
             }
+
+            return 0;
         }
 
         static void Synchronize(FolderSynchronizer synchronizer, CancellationToken token, ILogger logger)
