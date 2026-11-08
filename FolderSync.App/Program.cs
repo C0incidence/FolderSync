@@ -28,9 +28,9 @@ namespace FolderSync.App
                 cts.Cancel();
             };
 
-            if (!int.TryParse(timerInterval, out int interval) || interval <= 0 || interval >= MaxIntervalSeconds)
+            if (!int.TryParse(timerInterval, out int interval) || interval <= 0 || interval > MaxIntervalSeconds)
             {
-                Console.WriteLine("Interval must be a positive number, but less than 24 hours.");
+                Console.WriteLine("Interval must be between 1 and 86400 seconds (24 hours).");
                 return 1;
             }
 

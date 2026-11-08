@@ -10,8 +10,8 @@ namespace FolderSync.Core
         private readonly string _replicaFolderPath;
 
         // Windows and MacOS file path systems are not case-sensitive, but Linux is
-        private StringComparer _comparer = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
-        private StringComparison _comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        private readonly StringComparer _comparer = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        private readonly StringComparison _comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         public FolderSynchronizer(ILogger logger, string sourceFolderPath, string replicaFolderPath)
         {
