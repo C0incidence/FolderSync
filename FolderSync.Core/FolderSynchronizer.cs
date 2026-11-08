@@ -66,9 +66,9 @@ namespace FolderSync.Core
             var replicaDirectories = GetRelativeDirectoryPaths(_replicaFolderPath);
 
             var directoriesToDelete = replicaDirectories.Except(sourceDirectories, _comparer).ToList();
-            var directoriesToCopy = sourceDirectories.Except(replicaDirectories, _comparer).ToList();
+            var directoriesToCreate = sourceDirectories.Except(replicaDirectories, _comparer).ToList();
 
-            foreach (var directory in directoriesToCopy)
+            foreach (var directory in directoriesToCreate)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -162,11 +162,23 @@ namespace FolderSync.Core
 
             if (!File.Exists(fullSourceFilePath))
             {
+                _logger.Log($"{relativeFilePath} file disappeared from the source folder before copying, skipping.");
                 return;
             }
 
+            bool existedInReplica = File.Exists(fullReplicaFilePath);
+
             File.Copy(fullSourceFilePath, fullReplicaFilePath, overwrite: true);
-            _logger.Log($"{relativeFilePath} file copied to replica folder.");
+
+            if(existedInReplica)
+            {
+                _logger.Log($"{relativeFilePath} file updated in replica folder.");
+            }
+            else
+            {
+                _logger.Log($"{relativeFilePath} file created in replica folder.");
+            }
+
         }   
 
         private void DeleteFile(string relativeFilePath)
